@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Yew App</title>
+        <style>
+            body {
+                background-color: #222222;
+                color: silver;
+                --select-color: rgb(52, 52, 88);
+                --light-border-color: gray;
+                --bold-border-color: silver;
+                font-family: sans-serif;
+                font-size: 150%;
+            }
+
+            .field {
+                display: grid;
+                grid-template-columns: repeat(9, 1fr);
+                grid-template-rows: repeat(9, 1fr);
+                border-top: 2px solid var(--bold-border-color);
+                border-left: 2px solid var(--bold-border-color);
+                border-bottom: 1px solid var(--bold-border-color);
+                width: 50rem;
+                height: 50rem;
+                margin: auto;
+                place-items: stretch;
+            }
+            .cell {
+                border-right: 1px solid var(--light-border-color);
+                border-bottom: 1px solid var(--light-border-color);
+                text-align: center;
+                cursor: pointer;
+            }
+
+            .cell:nth-child(3n) {
+                border-right: 2px solid var(--bold-border-color);
+            }
+
+            .cell:nth-child(19), .cell:nth-child(20), .cell:nth-child(21), 
+            .cell:nth-child(22), .cell:nth-child(23), .cell:nth-child(24), 
+            .cell:nth-child(25), .cell:nth-child(26), .cell:nth-child(27),
+            .cell:nth-child(46), .cell:nth-child(47), .cell:nth-child(48), 
+            .cell:nth-child(49), .cell:nth-child(50), .cell:nth-child(51), 
+            .cell:nth-child(52), .cell:nth-child(53), .cell:nth-child(54)   {
+                border-bottom: 2px solid var(--bold-border-color);
+            }
+
+            .cell {
+                color: rgb(166, 182, 255);
+            }
+            .cell.fixed {
+                color: silver;
+            }
+            
+            .cell:focus {
+               background-color: var(--select-color);
+            }
+        </style>
+    </head>
+</html>
