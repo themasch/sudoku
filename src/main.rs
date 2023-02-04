@@ -1,6 +1,7 @@
 use log::info;
 use std::num::NonZeroU8;
 use yew::prelude::*;
+
 mod sudoku;
 
 #[rustfmt::skip]
@@ -18,40 +19,55 @@ static TEST_FIELD: [u8; 81] = [
     5, 0, 0,  9, 0, 2,  4, 6, 0,
 ];
 
+#[function_component]
+fn Game() -> Html {
+    let game = use_state_eq(|| sudoku::Game::create(TEST_FIELD));
+
+    let on_number_input = {
+        let game = game.clone();
+        Callback::from(move |(row, col, value)| {
+            let mut cgame = *game.clone();
+            cgame.set(row, col, value);
+            game.set(cgame);
+        })
+    };
+
+    html! {
+        <div>
+            <Field game={*game} number_input={on_number_input} />
+            <div>
+                {
+                    if game.is_valid() {
+                        html!{ "game is valid" }
+                    } else {
+                        html!{ "game is INvalid" }
+                    }
+                }
+            </div>
+        </div>
+    }
+}
+
 #[derive(PartialEq, Properties)]
 struct FieldProps {
-    given_numbers: [u8; 81],
+    game: sudoku::Game,
+    number_input: Callback<(usize, usize, u8), ()>,
 }
 
 #[function_component]
 fn Field(props: &FieldProps) -> Html {
     let selected = use_state_eq(|| None);
-    let input_numbers = use_state_eq(|| props.given_numbers);
-
-    let is_fixed_field = {
-        let given_numbers = props.given_numbers;
-        move |index: usize| -> bool { given_numbers[index] != 0 }
-    };
-
-    let get_value_at = {
-        let input_numbers = input_numbers.clone();
-        move |index: usize| -> Option<NonZeroU8> {
-            match props.given_numbers[index] {
-                0 => match input_numbers[index] {
-                    0 => None,
-                    x => Some(x.try_into().unwrap()),
-                },
-                x => Some(x.try_into().unwrap()),
-            }
-        }
-    };
 
     html! {
         <div class="field">
         {
 
-            (1..=81)
-                .map(| idx | {
+            props.game.cells().enumerate()
+                .map(| (game_index, value) | {
+
+                    let idx = game_index + 1;
+                    let (row, col) = sudoku::Game::cell_index_to_coords(game_index);
+
                     let on_cell_select = {
                         let selected = selected.clone();
                         Callback::from(move |_| {
@@ -63,28 +79,18 @@ fn Field(props: &FieldProps) -> Html {
                         })
                     };
 
-                    let game_index = (idx - 1) as usize;
                     let onkeyup = {
-                        let input_numbers = input_numbers.clone();
+                        let number_input = props.number_input.clone();
                         Callback::from(move | keyboard_event: KeyboardEvent | {
                             let input = keyboard_event.key_code();
-                            if is_fixed_field(game_index) {
-                                return;
-                            }
-
-                            // keys 0..9
                             if (48..=57).contains(&input) {
                                 let input_val = (input - 48) as u8;
                                 info!("inserting {:?}", input_val);
-                                let mut new_numbers = *input_numbers;
-                                new_numbers[game_index] = input_val;
-                                input_numbers.set(new_numbers);
+                                number_input.emit((row, col, input_val));
                             } else {
                                 match input {
                                     46 /* del */ => {
-                                        let mut new_numbers = *input_numbers;
-                                        new_numbers[game_index] = 0;
-                                        input_numbers.set(new_numbers);
+                                        number_input.emit((row, col, 0));
                                     },
                                     _ => info!("no mapping for key code {}", keyboard_event.key_code())
                                 };
@@ -93,10 +99,14 @@ fn Field(props: &FieldProps) -> Html {
                         })
                     };
 
-                    let value = get_value_at(game_index);
+                    let fixed = props.game.index_is_given(game_index);
+                    let value = match value {
+                        0 => None,
+                        x => Some(x.try_into().unwrap())
+                    };
 
                     html! {
-                        <Cell idx={idx as u8} onkeyup={onkeyup} onfocus={on_cell_select} selected={ Some(idx) == *selected } fixed={is_fixed_field(game_index)} value={value} />
+                        <Cell idx={idx as u8} onkeyup={onkeyup} onfocus={on_cell_select} selected={ Some(idx) == *selected } fixed={fixed} value={value} />
                     }
                 })
                 .collect::<Html>()
@@ -136,8 +146,5 @@ fn Cell(props: &CellProps) -> Html {
 
 fn main() {
     wasm_logger::init(wasm_logger::Config::default());
-    yew::Renderer::<Field>::with_props(FieldProps {
-        given_numbers: TEST_FIELD,
-    })
-    .render();
+    yew::Renderer::<Game>::new().render();
 }
