@@ -43,7 +43,7 @@ jobs:
         with:
           version: 'latest'
       - name: build
-        run: trunk build --release
+        run: trunk build --release --public-url '/sudoku'
         
       - name: Setup Pages
         uses: actions/configure-pages@v3
