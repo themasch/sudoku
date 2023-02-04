@@ -1,6 +1,7 @@
 use log::info;
 use std::num::NonZeroU8;
 use yew::prelude::*;
+mod sudoku;
 
 #[rustfmt::skip]
 static TEST_FIELD: [u8; 81] = [
