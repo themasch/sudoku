@@ -132,6 +132,14 @@ impl Game {
         self.notes[Self::coords_to_cell_index(row, col)]
     }
 
+    pub fn set_notes(&mut self, row: usize, col: usize, notes: u16) {
+        debug_assert!(row <= 9 && row >= 1);
+        debug_assert!(col <= 9 && col >= 1);
+        debug_assert!(notes <= 0x01FF);
+
+        self.notes[Self::coords_to_cell_index(row, col)] = notes;
+    }
+
     pub fn toggle_note(&mut self, row: usize, col: usize, note: u8) {
         self.notes[Self::coords_to_cell_index(row, col)]
             .bitxor_assign(1u16 << (note - 1).max(0) as i16);

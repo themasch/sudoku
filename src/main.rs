@@ -1,8 +1,10 @@
 use std::num::NonZeroU8;
 
+use crate::solver::{GenerateBasicMarkingsStep, NakedSingleStep};
 use log::info;
 use yew::prelude::*;
 
+mod solver;
 mod sudoku;
 
 #[rustfmt::skip]
@@ -24,6 +26,22 @@ static TEST_FIELD: [u8; 81] = [
 fn Game() -> Html {
     let game = use_state_eq(|| sudoku::Game::create(TEST_FIELD));
 
+    let solver = use_mut_ref(|| {
+        let mut solver = solver::Solver::default();
+        solver.add_step(GenerateBasicMarkingsStep);
+        solver.add_step(NakedSingleStep);
+        solver
+    });
+
+    let on_solver_step = {
+        let game = game.clone();
+        let solver = solver.clone();
+        Callback::from(move |_| {
+            let cgame = (*solver).borrow_mut().next_step(*game);
+            game.set(cgame);
+        })
+    };
+
     let on_number_input = {
         let game = game.clone();
         Callback::from(
@@ -43,6 +61,7 @@ fn Game() -> Html {
 
     html! {
         <div>
+            <button onclick={on_solver_step}>{ "run solver step" }</button>
             <Field game={*game} number_input={on_number_input} />
             <div>
                 {
