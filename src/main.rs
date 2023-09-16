@@ -1,5 +1,6 @@
-use log::info;
 use std::num::NonZeroU8;
+
+use log::info;
 use yew::prelude::*;
 
 mod sudoku;
@@ -25,11 +26,19 @@ fn Game() -> Html {
 
     let on_number_input = {
         let game = game.clone();
-        Callback::from(move |(row, col, value)| {
-            let mut cgame = *game.clone();
-            cgame.set(row, col, value);
-            game.set(cgame);
-        })
+        Callback::from(
+            move |(row, col, value, is_marking): (usize, usize, u8, bool)| {
+                let mut cgame = *game.clone();
+                if !is_marking {
+                    cgame.set(row, col, value);
+                } else {
+                    info!("toggling marking: {:?}", (row, col, value));
+                    cgame.toggle_note(row, col, value);
+                }
+
+                game.set(cgame);
+            },
+        )
     };
 
     html! {
@@ -51,12 +60,36 @@ fn Game() -> Html {
 #[derive(PartialEq, Properties)]
 struct FieldProps {
     game: sudoku::Game,
-    number_input: Callback<(usize, usize, u8), ()>,
+    number_input: Callback<(usize, usize, u8, bool), ()>,
 }
 
 #[function_component]
 fn Field(props: &FieldProps) -> Html {
     let selected = use_state_eq(|| None);
+
+    let create_keyboard_input =
+        |row: usize,
+         col: usize,
+         number_input: Callback<_>,
+         selected: UseStateHandle<Option<usize>>| {
+            return move |keyboard_event: KeyboardEvent| {
+                keyboard_event.prevent_default();
+                keyboard_event.stop_propagation();
+                keyboard_event.cancel_bubble();
+
+                let input = keyboard_event.key_code();
+                match input {
+                    46 /* del */ => {
+                        number_input.emit((row, col, 0, false));
+                    }
+                    48..=57 => {
+                        let input_val = (input - 48) as u8;
+                        number_input.emit((row, col, input_val, keyboard_event.ctrl_key()));
+                    }
+                    _ => info!("no mapping for key code {}", keyboard_event.key_code()),
+                }
+            };
+        };
 
     html! {
         <div class="field">
@@ -81,22 +114,8 @@ fn Field(props: &FieldProps) -> Html {
 
                     let onkeyup = {
                         let number_input = props.number_input.clone();
-                        Callback::from(move | keyboard_event: KeyboardEvent | {
-                            let input = keyboard_event.key_code();
-                            if (48..=57).contains(&input) {
-                                let input_val = (input - 48) as u8;
-                                info!("inserting {:?}", input_val);
-                                number_input.emit((row, col, input_val));
-                            } else {
-                                match input {
-                                    46 /* del */ => {
-                                        number_input.emit((row, col, 0));
-                                    },
-                                    _ => info!("no mapping for key code {}", keyboard_event.key_code())
-                                };
-
-                            }
-                        })
+                        let selected = selected.clone();
+                        Callback::from(create_keyboard_input(row, col, number_input, selected))
                     };
 
                     let fixed = props.game.index_is_given(game_index);
@@ -105,8 +124,29 @@ fn Field(props: &FieldProps) -> Html {
                         x => Some(x.try_into().unwrap())
                     };
 
+                    let markings = if value.is_none() {
+                        match props.game.get_notes(row, col) {
+                            0 => None,
+                            x => {
+                                Some([
+                                    /* 1 */ x & 0x0001 > 0,
+                                    /* 2 */ x & 0x0002 > 0,
+                                    /* 3 */ x & 0x0004 > 0,
+                                    /* 4 */ x & 0x0008 > 0,
+                                    /* 5 */ x & 0x0010 > 0,
+                                    /* 6 */ x & 0x0020 > 0,
+                                    /* 7 */ x & 0x0040 > 0,
+                                    /* 8 */ x & 0x0080 > 0,
+                                    /* 9 */ x & 0x0100 > 0,
+                                ])
+                            }
+                        }
+                    } else {
+                        None
+                    };
+
                     html! {
-                        <Cell idx={idx as u8} onkeyup={onkeyup} onfocus={on_cell_select} selected={ Some(idx) == *selected } fixed={fixed} value={value} />
+                        <Cell idx={idx as u8} onkeyup={onkeyup} onfocus={on_cell_select} selected={ Some(idx) == *selected } fixed={fixed} value={value} markings={markings} />
                     }
                 })
                 .collect::<Html>()
@@ -127,11 +167,33 @@ pub struct CellProps {
     selected: bool,
     #[prop_or_default]
     fixed: bool,
+    #[prop_or_default]
+    markings: Option<[bool; 9]>,
 }
 
 #[function_component]
 fn Cell(props: &CellProps) -> Html {
     let idx = format!("{}", props.idx);
+
+    let content = if let Some(value) = props.value {
+        html! { value }
+    } else if let Some(markings) = props.markings {
+        html! {
+            <div class="markings">
+                <div> { if markings[0] { "1" } else { "" } } </div>
+                <div> { if markings[1] { "2" } else { "" } } </div>
+                <div> { if markings[2] { "3" } else { "" } } </div>
+                <div> { if markings[3] { "4" } else { "" } } </div>
+                <div> { if markings[4] { "5" } else { "" } } </div>
+                <div> { if markings[5] { "6" } else { "" } } </div>
+                <div> { if markings[6] { "7" } else { "" } } </div>
+                <div> { if markings[7] { "8" } else { "" } } </div>
+                <div> { if markings[8] { "9" } else { "" } } </div>
+            </div>
+        }
+    } else {
+        html! {}
+    };
 
     html! {
         <div tabindex={idx}
@@ -139,7 +201,7 @@ fn Cell(props: &CellProps) -> Html {
             onkeyup={props.onkeyup.clone()}
             class={classes!("cell", props.selected.then_some("selected"), props.fixed.then_some("fixed"))}
             >
-            { props.value }
+            { content }
         </div>
     }
 }

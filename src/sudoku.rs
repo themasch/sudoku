@@ -1,3 +1,5 @@
+use std::ops::{BitXorAssign, Shr};
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Numbers([u8; 81]);
 
@@ -113,15 +115,26 @@ impl<'a> Iterator for Cells<'a> {
 pub struct Game {
     given_numbers: Numbers,
     current_numbers: Numbers,
+    notes: [u16; 81],
 }
 
 impl Game {
     pub fn create<N: Into<Numbers>>(given_numbers: N) -> Game {
         let given_numbers = given_numbers.into();
         Game {
-            given_numbers: given_numbers,
+            given_numbers,
             current_numbers: given_numbers,
+            notes: [0u16; 81],
         }
+    }
+
+    pub fn get_notes(&self, row: usize, col: usize) -> u16 {
+        self.notes[Self::coords_to_cell_index(row, col)]
+    }
+
+    pub fn toggle_note(&mut self, row: usize, col: usize, note: u8) {
+        self.notes[Self::coords_to_cell_index(row, col)]
+            .bitxor_assign(1u16 << (note - 1).max(0) as i16);
     }
 
     pub fn cell_index_to_coords(index: usize) -> (usize, usize) {
@@ -145,7 +158,6 @@ impl Game {
         self.given_numbers.get_by_offset(index) != 0
     }
 
-
     pub fn is_given(&self, row: usize, col: usize) -> bool {
         self.given_numbers.get(row, col) != 0
     }
@@ -154,7 +166,7 @@ impl Game {
         if self.is_given(row, col) {
             return false;
         }
-        
+
         self.current_numbers.set(row, col, value);
         true
     }
